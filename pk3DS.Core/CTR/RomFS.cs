@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -383,15 +383,20 @@ public class RomFS
                 }
                 else { PB_Show.Minimum = 0; PB_Show.Step = 1; PB_Show.Value = 0; PB_Show.Maximum = count; }
 
-                for (long ofs = 0; ofs < (long)ivfc.Levels[i].DataLength; ofs += ivfc.Levels[i].BlockSize)
+                long dataStart = baseOfs + (long)ivfc.Levels[i].HashOffset;
+                long dataLen = (long)ivfc.Levels[i].DataLength;
+
+                for (long ofs = 0; ofs < dataLen; ofs += ivfc.Levels[i].BlockSize)
                 {
-                    OutFileStream.Seek(hOfs, SeekOrigin.Begin);
-                    OutFileStream.Read(buffer, 0, (int)ivfc.Levels[i].BlockSize);
-                    hOfs = OutFileStream.Position;
-                    byte[] hash = SHA256.HashData(buffer);
+                    OutFileStream.Seek(dataStart + ofs, SeekOrigin.Begin);
+                    int read = OutFileStream.Read(buffer, 0, buffer.Length);
+
+                    byte[] hash = SHA256.HashData(buffer.AsSpan(0, read));
+
                     OutFileStream.Seek(cOfs, SeekOrigin.Begin);
                     OutFileStream.Write(hash, 0, hash.Length);
                     cOfs = OutFileStream.Position;
+
                     if (PB_Show.InvokeRequired)
                     {
                         PB_Show.Invoke((MethodInvoker)PB_Show.PerformStep);

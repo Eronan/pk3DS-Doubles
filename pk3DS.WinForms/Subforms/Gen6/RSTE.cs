@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -468,6 +468,48 @@ public partial class RSTE : Form
     private readonly Dictionary<string, int> TagTypes = [];
     public static int[] sL; // Random Species List
     public static decimal rGiftPercent, rLevelMultiplier, rMinPKM, rMaxPKM, rForceFullyEvolvedLevel, rForceHighPowerLevel;
+
+    private void B_Doubles_Click(object sender, EventArgs e) //code is the same as the randomizer, only it doesn't randomize, but instead sets all battles to double battles
+    {
+        var confirmResult = MessageBox.Show("This will turn every battle except the very first into a double battle. This means you will have to have at least 2 healthy Pokémon with you to any trainer battle or the game will crash." + Environment.NewLine + "Remember to save often." + Environment.NewLine + Environment.NewLine + "Are you sure you want to continue?",
+                                 "Do you want to continue?",
+                                 MessageBoxButtons.YesNo);
+        if (confirmResult == DialogResult.Yes)
+        {
+            for (int i = 1; i < CB_TrainerID.Items.Count; i++)
+            {
+                CB_TrainerID.SelectedIndex = i;
+                CB_AI.SelectedIndex = CB_AI.SelectedIndex | (int)TrainerAI.Doubles;
+                CB_Battle_Type.SelectedIndex = CB_Battle_Type.SelectedIndex is (int) BattleMode.Singles ? (int) BattleMode.Doubles : CB_Battle_Type.SelectedIndex;
+                if (CB_numPokemon.SelectedIndex < 2)
+                {
+                    if (i != 137)
+                    {
+                        // Copy the first Pokemon over to the second.
+                        CB_numPokemon.SelectedIndex = 2;
+                        trpk_pkm[1].SelectedIndex = trpk_pkm[0].SelectedIndex;
+                        trpk_lvl[1].SelectedIndex = trpk_lvl[0].SelectedIndex;
+                        trpk_m1[1].SelectedIndex = trpk_m1[0].SelectedIndex;
+                        trpk_m2[1].SelectedIndex = trpk_m2[0].SelectedIndex;
+                        trpk_m3[1].SelectedIndex = trpk_m3[0].SelectedIndex;
+                        trpk_m4[1].SelectedIndex = trpk_m4[0].SelectedIndex;
+                        trpk_abil[1].SelectedIndex = trpk_abil[0].SelectedIndex;
+                        trpk_form[1].SelectedIndex = trpk_form[0].SelectedIndex;
+                        trpk_IV[1].SelectedIndex = trpk_IV[0].SelectedIndex;
+                        trpk_item[1].SelectedIndex = trpk_item[0].SelectedIndex;
+                        trpk_gender[1].SelectedIndex = trpk_gender[0].SelectedIndex;
+                    }
+
+
+                }
+
+            }
+            CB_TrainerID.SelectedIndex = 1;
+            WinFormsUtil.Alert("Finished!");
+        }
+
+
+    }
 
     private void B_Randomize_Click(object sender, EventArgs e)
     {
