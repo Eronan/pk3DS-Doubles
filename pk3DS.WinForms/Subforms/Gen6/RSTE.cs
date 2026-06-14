@@ -603,6 +603,17 @@ public partial class RSTE : Form
             bool isImportantClass = rImportant[i] != null && (rImportant[i].Contains("GYM") || rImportant[i].Contains("ELITE") || rImportant[i].Contains("CHAMPION"));
             bool typerand = (rTypeTheme && !rGymE4Only) || (rTypeTheme && isImportantClass);
 
+            if (i == 20)
+            {
+                Console.WriteLine("Reached 020");
+            }
+
+            if (isImportantClass || (rImportant[i] != null && rImportant[i].Contains("RIVAL")))
+            {
+                // Skip important trainers, will be manually set-up.
+                continue;
+            }
+
             rSpeciesRand.rType = typerand;
 
             byte[] trd = trdata[i];
@@ -822,9 +833,9 @@ public partial class RSTE : Form
         ImportantTrainers = true;
 
         // Rival Battles
-        TagTrainer(tags, "RIVAL1", 289, 292, 295, 298, 527, 530, 674, 677, 699, 906); // Rival w/ Grass Starter
-        TagTrainer(tags, "RIVAL2", 290, 293, 296, 299, 528, 531, 675, 678, 700, 907); // Rival w/ Fire Starter
-        TagTrainer(tags, "RIVAL3", 291, 294, 297, 300, 529, 532, 676, 679, 701, 908); // Rival w/ Water Starter
+        TagTrainer(tags, "RIVAL1", 1, 4, 289, 292, 295, 298, 527, 530, 674, 677, 699, 906); // Rival w/ Grass Starter
+        TagTrainer(tags, "RIVAL2", 2, 5, 290, 293, 296, 299, 528, 531, 675, 678, 700, 907); // Rival w/ Fire Starter
+        TagTrainer(tags, "RIVAL3", 3, 6, 291, 294, 297, 300, 529, 532, 676, 679, 701, 908); // Rival w/ Water Starter
 
         // Aqua Admins
         TagTrainer(tags, "AQUA1", 178, 231, 266);           // Archie

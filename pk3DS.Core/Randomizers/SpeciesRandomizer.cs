@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
-
+using System.Net.Sockets;
 using pk3DS.Core.Structures.PersonalInfo;
 
 namespace pk3DS.Core.Randomizers;
@@ -10,6 +11,9 @@ public class SpeciesRandomizer
     //private readonly GameConfig Game;
     private readonly PersonalInfo[] SpeciesStat;
     private readonly int MaxSpeciesID;
+
+    private int LastGeneratedId = -1;
+    private Dictionary<int, int> UsedSpecies = new();
 
     public SpeciesRandomizer(GameConfig config)
     {
@@ -57,8 +61,11 @@ public class SpeciesRandomizer
 
         loopctr = 0; // altering calculations to prevent infinite loops
         int newSpecies;
-        while (!GetNewSpecies(bannedSpecies, oldpkm, out newSpecies))
+        while (GetNewSpecies(bannedSpecies, oldpkm, out newSpecies) < 100)
+        {
             loopctr++;
+        }
+
         return newSpecies;
     }
 
@@ -68,10 +75,55 @@ public class SpeciesRandomizer
         PersonalInfo oldpkm = SpeciesStat[oldSpecies];
 
         loopctr = 0; // altering calculations to prevent infinite loops
+        int? bestSpecies = null;
+        int? bestScore = null;
         int newSpecies;
-        while (!GetNewSpecies(oldSpecies, oldpkm, out newSpecies) || !GetIsTypeMatch(newSpecies, type))
+        int newScore;
+        bool isTypeMatch = true;
+        while ((newScore = GetNewSpecies(oldSpecies, oldpkm, out newSpecies)) < 100 || !(isTypeMatch = GetIsTypeMatch(newSpecies, type)))
+        {
+            if (isTypeMatch == false)
+            {
+                newScore -= 30;
+            }
+            else if (type != -1)
+            {
+                // Just in case, it matches the Trainer Type but doesn't match the old Pokemon's type, we increase the score.
+                newScore += 5;
+            }
+
+            if (LastGeneratedId == newSpecies)
+            {
+                // Encourage generating different Pokemon for the same Trainer.
+                newScore -= 20;
+            }
+
+            if (UsedSpecies.GetValueOrDefault(newSpecies, 0) > 0)
+            {
+                // Discourage generating the same Pokemon over and over again.
+                newScore -= 20;
+            }
+
+            if (bestScore is null)
+            {
+                bestScore ??= newScore;
+                bestSpecies = newSpecies;
+            }
+            else if (newScore > bestScore)
+            {
+                bestScore = newScore;
+                bestSpecies = newSpecies;
+            }
+
             loopctr++;
-        return newSpecies;
+        }
+
+        bestSpecies ??= newSpecies;
+        bestScore ??= newScore;
+
+        UsedSpecies[newSpecies] = UsedSpecies.GetValueOrDefault(newSpecies, 0) + 1;
+
+        return bestSpecies.Value;
     }
 
     private bool GetIsTypeMatch(int newSpecies, int type) => type == -1 || SpeciesStat[newSpecies].Types.Any(z => z == type) || loopctr > 9000;
@@ -83,12 +135,12 @@ public class SpeciesRandomizer
 
         loopctr = 0; // altering calculations to prevent infinite loops
         int newSpecies;
-        while (!GetNewSpecies(oldSpecies, oldpkm, out newSpecies))
+        while (GetNewSpecies(oldSpecies, oldpkm, out newSpecies) < 100)
         {
             if (loopctr > 0x0001_0000)
             {
                 PersonalInfo pkm = SpeciesStat[newSpecies];
-                if (IsSpeciesBSTBad(oldpkm, pkm) && loopctr > 0x0001_1000) // keep trying for at minimum BST
+                if (IsSpeciesBSTBad(oldpkm, pkm) == 0 && loopctr > 0x0001_1000) // keep trying for at minimum BST
                     continue;
                 return newSpecies; // failed to find any match based on criteria, return random species that may or may not match criteria
             }
@@ -118,15 +170,23 @@ public class SpeciesRandomizer
         return !oldpkm.Types.Any(z => pkm.Types.Contains(z));
     }
 
-    private bool IsSpeciesBSTBad(PersonalInfo oldpkm, PersonalInfo pkm)
+    private int IsSpeciesBSTBad(PersonalInfo oldpkm, PersonalInfo pkm)
     {
         if (!rBST)
-            return false;
+        {
+            return 0;
+        }
+
         // Base stat total has to be close to original BST
         int expand = loopctr / MaxSpeciesID;
         int lo = oldpkm.BST * l / (h + expand);
         int hi = oldpkm.BST * (h + expand) / l;
-        return lo > pkm.BST || pkm.BST > hi;
+        if (lo > pkm.BST || pkm.BST > lo)
+        {
+            return Math.Abs(oldpkm.BST - pkm.BST);
+        }
+
+        return 0;
     }
 
     private int[] InitializeSpeciesList()
@@ -220,20 +280,36 @@ public class SpeciesRandomizer
 
     public int[] RandomSpeciesList => Enumerable.Range(1, MaxSpeciesID).ToArray();
 
-    private bool GetNewSpecies(int currentSpecies, PersonalInfo oldpkm, out int newSpecies)
+    private int GetNewSpecies(int currentSpecies, PersonalInfo oldpkm, out int newSpecies)
     {
         newSpecies = RandSpec.Next();
         PersonalInfo pkm = SpeciesStat[newSpecies];
+        return GetScore(oldpkm, currentSpecies, pkm, newSpecies);
 
-        // Verify it meets specifications
-        if (IsSpeciesReplacementBad(newSpecies, currentSpecies)) // no A->A randomization
-            return false;
-        if (IsSpeciesEXPRateBad(oldpkm, pkm))
-            return false;
-        if (IsSpeciesTypeBad(oldpkm, pkm))
-            return false;
-        if (IsSpeciesBSTBad(oldpkm, pkm))
-            return false;
-        return true;
+        int GetScore(PersonalInfo oldpkmn, int oldSpecies, PersonalInfo pkm, int currentSpecies)
+        {
+            var score = 100;
+            if (IsSpeciesReplacementBad(oldSpecies, currentSpecies))
+            {
+                score -= 20;
+            }
+
+            // Poochyena doesn't have good replacement options.
+
+            if (IsSpeciesEXPRateBad(oldpkm, pkm))
+            {
+                score -= 10;
+            }
+
+            if (IsSpeciesTypeBad(oldpkm, pkm))
+            {
+                score -= 30;
+            }
+
+            // Get the difference between BSTs as a score in and of itself
+            score -= 4 * IsSpeciesBSTBad(oldpkm, pkm);
+
+            return score;
+        }
     }
 }
